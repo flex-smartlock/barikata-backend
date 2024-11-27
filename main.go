@@ -20,7 +20,7 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(30)))
-	e.Use(middleware.CORS())
+	// e.Use(middleware.CORS()) // ! 最終的にCORSは有効にする！
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 1,
 	}))
