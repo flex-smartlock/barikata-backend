@@ -1,25 +1,16 @@
-package main
+// cr is short for control routes
+package cr
 
 import (
 	"fmt"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/labstack/echo/v4"
 )
 
-var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	fmt.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
-}
-
-var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
-	fmt.Println("Connected")
-}
-
-var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-	fmt.Printf("Connect lost: %v", err)
-}
-
-func main() {
+func Test(c echo.Context) error {
+	// Test
 	var broker = "127.0.0.1"
 	var port = 1883
 	opts := mqtt.NewClientOptions()
@@ -39,6 +30,19 @@ func main() {
 	publish(client)
 
 	client.Disconnect(250)
+	return c.String(200, "ok")
+}
+
+var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+	fmt.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
+}
+
+var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
+	fmt.Println("Connected")
+}
+
+var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
+	fmt.Printf("Connect lost: %v", err)
 }
 
 func publish(client mqtt.Client) {

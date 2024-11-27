@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 
+	cr "github.com/flex-smartlock/barikata-backend/routes/control"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -35,6 +36,9 @@ func main() {
 	v1.GET("/hello", func(c echo.Context) error {
 		return c.String(200, "Hello, World!")
 	})
+
+	control := e.Group("/control")
+	control.GET("/test", cr.Test)
 
 	serverPort := os.Getenv("SERVER_PORT")
 	if isRunningSecure {
