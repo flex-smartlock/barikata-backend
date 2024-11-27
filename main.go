@@ -1,59 +1,47 @@
 package main
 
 import (
-	"fmt"
-	"time"
+	"os"
+	"strconv"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/joho/godotenv"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
-var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	fmt.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
-}
-
-var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
-	fmt.Println("Connected")
-}
-
-var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-	fmt.Printf("Connect lost: %v", err)
-}
-
 func main() {
-	var broker = "127.0.0.1"
-	var port = 1883
-	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", broker, port))
-	opts.SetClientID("go_mqtt_client")
-	opts.SetUsername("server")
-	opts.SetPassword("HYNFeGy2h5fCLoRg26dHGViWvLkc4Exs")
-	opts.SetDefaultPublishHandler(messagePubHandler)
-	opts.OnConnect = connectHandler
-	opts.OnConnectionLost = connectLostHandler
-	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+	godotenv.Load()
+	isRunningSecure, err := strconv.ParseBool(os.Getenv("SERVER_RUNNING_SECURE"))
+	if err != nil {
+		isRunningSecure = false
 	}
 
-	sub(client)
-	publish(client)
-
-	client.Disconnect(250)
-}
-
-func publish(client mqtt.Client) {
-	num := 10
-	for i := 0; i < num; i++ {
-		text := fmt.Sprintf("Message %d", i)
-		token := client.Publish("topic/test", 0, false, text)
-		token.Wait()
-		time.Sleep(time.Second)
+	e := echo.New()
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(30)))
+	e.Use(middleware.CORS())
+	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
+		Level: 1,
+	}))
+	if isRunningSecure {
+		e.Use(middleware.Secure())
+		e.Use(middleware.HTTPSRedirect())
 	}
-}
+	e.Use(middleware.RemoveTrailingSlash())
 
-func sub(client mqtt.Client) {
-	topic := "topic/test"
-	token := client.Subscribe(topic, 1, nil)
-	token.Wait()
-	fmt.Printf("Subscribed to topic: %s", topic)
+	v1 := e.Group("/v1")
+	e.IPExtractor = echo.ExtractIPFromXFFHeader()
+	v1.GET("/hello", func(c echo.Context) error {
+		return c.String(200, "Hello, World!")
+	})
+
+	serverPort := os.Getenv("SERVER_PORT")
+	if isRunningSecure {
+		serverCertFile := os.Getenv("SERVER_CERT_FILE")
+		serverKeyFile := os.Getenv("SERVER_KEY_FILE")
+		e.Logger.Fatal(e.StartTLS(serverPort, serverCertFile, serverKeyFile))
+	} else {
+		e.Logger.Fatal(e.Start(serverPort))
+	}
 }
